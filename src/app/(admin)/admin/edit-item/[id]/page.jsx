@@ -9,70 +9,82 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function EditItemPage() {
   const router = useRouter()
-  const { id } = useParams()
+  const { id } = useParams() // Get the item ID from the URL
 
   // State for form fields
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState('')
-  const [section, setSection] = useState('')
+  const [sectionId, setSectionId] = useState('') // State for the selected section ID
   const [isSpecial, setIsSpecial] = useState(false)
   const [isVegetarian, setIsVegetarian] = useState(false)
   const [isVegan, setIsVegan] = useState(false)
   const [isGlutenFree, setIsGlutenFree] = useState(false)
   const [containsNuts, setContainsNuts] = useState(false)
 
+  const [sections, setSections] = useState([]) // State to hold the list of all sections
   const [isLoading, setIsLoading] = useState(true)
 
-  // Fetch the existing item data when the page loads
+  // Fetch both the item and the list of sections when the page loads
   useEffect(() => {
     if (!id) return
 
-    const fetchItem = async () => {
-      setIsLoading(true) // Set loading to true when starting fetch
-      const { data, error } = await supabase
+    const fetchData = async () => {
+      setIsLoading(true)
+      
+      // Fetch the specific item to edit
+      const { data: itemData, error: itemError } = await supabase
         .from('menu_items')
         .select('*')
         .eq('id', id)
         .single()
-
-      if (error) {
-        console.error('Error fetching item:', error)
-        alert("Error: Could not find the item you're trying to edit.")
-        // --- THE FIX IS HERE ---
-        setIsLoading(false) // Stop loading even if there's an error
-        router.push('/admin') // Redirect if item not found
+      
+      // Fetch all available sections for the dropdown
+      const { data: sectionsData, error: sectionsError } = await supabase
+        .from('sections')
+        .select('id, name')
+        .order('position')
+      
+      if (itemError || sectionsError) {
+        console.error('Error fetching data:', itemError || sectionsError)
+        alert("Error: Could not load data for editing.")
+        router.push('/admin')
       } else {
         // Pre-fill the form with the item's data
-        setName(data.name)
-        setDescription(data.description)
-        setPrice(data.price)
-        setSection(data.section)
-        setIsSpecial(data.is_special)
-        setIsVegetarian(data.is_vegetarian)
-        setIsVegan(data.is_vegan)
-        setIsGlutenFree(data.is_gluten_free)
-        setContainsNuts(data.contains_nuts)
-        setIsLoading(false) // Stop loading on success
+        setName(itemData.name)
+        setDescription(itemData.description)
+        setPrice(itemData.price)
+        setSectionId(itemData.section_id) // Set the current section ID
+        setIsSpecial(itemData.is_special)
+        setIsVegetarian(itemData.is_vegetarian)
+        setIsVegan(itemData.is_vegan)
+        setIsGlutenFree(itemData.is_gluten_free)
+        setContainsNuts(itemData.contains_nuts)
+        
+        // Save the list of sections for the dropdown
+        setSections(sectionsData)
+        setIsLoading(false)
       }
     }
 
-    fetchItem()
+    fetchData()
   }, [id, router])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-
+    
+    // Update the item in the database
     const { error } = await supabase
       .from('menu_items')
       .update({
         name,
         description,
         price,
-        section,
+        section_id: sectionId, // Save the updated section ID
         is_special: isSpecial,
         is_vegetarian: isVegetarian,
         is_vegan: isVegan,
@@ -101,10 +113,24 @@ export default function EditItemPage() {
           <Label htmlFor="name">Name</Label>
           <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
+        
+        {/* Updated Section Dropdown */}
         <div>
-          <Label htmlFor="section">Menu Section</Label>
-          <Input id="section" value={section} onChange={(e) => setSection(e.target.value)} required />
+          <Label>Menu Section</Label>
+          <Select onValueChange={setSectionId} value={sectionId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select a section" />
+            </SelectTrigger>
+            <SelectContent>
+              {sections.map((section) => (
+                <SelectItem key={section.id} value={section.id}>
+                  {section.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
+        
         <div>
           <Label htmlFor="description">Description</Label>
           <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} />
@@ -113,6 +139,7 @@ export default function EditItemPage() {
           <Label htmlFor="price">Price</Label>
           <Input id="price" type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} required />
         </div>
+        {/* Checkboxes... */}
         <div className="flex items-center space-x-2">
           <Checkbox id="is_special" checked={isSpecial} onCheckedChange={setIsSpecial} />
           <Label htmlFor="is_special">Mark as a Weekly Special</Label>
