@@ -1,31 +1,31 @@
 // src/app/menu/page.jsx
-
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr' // Updated import
 import { cookies } from 'next/headers'
 import Image from 'next/image'
 import { Badge } from '@/components/ui/badge'
 
 export default async function MenuPage() {
-  const supabase = createServerComponentClient({ cookies })
+  const cookieStore = cookies() // Updated client creation
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    { cookies: { get: (name) => cookieStore.get(name)?.value } }
+  )
 
-  // --- This is the correct, updated query ---
   const { data: menuItems, error } = await supabase
     .from('menu_items')
-    .select('*, sections(*)') // Join with the sections table
+    .select('*, sections(*)')
     .order('position', { referencedTable: 'sections', ascending: true })
     .order('position', { ascending: true })
 
   if (error) {
-    console.error('Error fetching menu items:', error)
+    // ... (rest of the component is the same)
     return <p>Could not load the menu. Please try again later.</p>
   }
 
-  // --- This is the correct, updated grouping logic ---
   const groupedMenu = menuItems.reduce((acc, item) => {
     const sectionName = item.sections?.name || 'Uncategorized';
-    if (!acc[sectionName]) {
-      acc[sectionName] = [];
-    }
+    if (!acc[sectionName]) { acc[sectionName] = []; }
     acc[sectionName].push(item);
     return acc;
   }, {});
