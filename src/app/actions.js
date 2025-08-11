@@ -2,7 +2,8 @@
 'use server'
 
 import { redirect } from 'next/navigation'
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
+import Stripe from 'stripe'
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 export async function checkout(cartItems) {
   const line_items = cartItems.map((item) => {

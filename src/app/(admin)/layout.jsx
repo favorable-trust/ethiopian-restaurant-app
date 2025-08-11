@@ -1,22 +1,18 @@
-// src/app/(admin)/layout.jsx
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 export default async function AdminLayout({ children }) {
-  const supabase = createServerComponentClient({ cookies })
+  const cookieStore = cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    { cookies: { get: (name) => cookieStore.get(name)?.value } }
+  )
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  // --- DEBUGGING STEP ---
-  // This will print the session details to your VS Code terminal
-  console.log('SESSION ON SERVER:', session)
-  // --- END DEBUGGING STEP ---
+  const { data: { session } } = await supabase.auth.getSession()
 
   if (!session) {
-    // This is a protected route - redirect to login if no session.
     redirect('/login')
   }
 
